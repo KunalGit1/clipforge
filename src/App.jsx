@@ -327,10 +327,93 @@ const styles = `
     .main { padding: 20px; }
     .nav { padding: 14px 20px; }
   }
+
+  /* PRICING PAGE */
+  .pricing-hero {
+    text-align: center; padding: 60px 20px 40px;
+  }
+  .pricing-hero h1 {
+    font-family: var(--font-head); font-size: 48px; font-weight: 800;
+    background: linear-gradient(135deg, var(--text), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 14px; letter-spacing: -1px;
+  }
+  .pricing-hero p {
+    font-size: 16px; color: var(--muted); max-width: 480px; margin: 0 auto 40px; line-height: 1.7;
+  }
+  .pricing-cards {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    max-width: 800px; margin: 0 auto 60px;
+  }
+  @media (max-width: 700px) { .pricing-cards { grid-template-columns: 1fr; } }
+  .pricing-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 36px 32px; position: relative; overflow: hidden;
+    transition: transform 0.2s;
+  }
+  .pricing-card:hover { transform: translateY(-4px); }
+  .pricing-card.featured {
+    border-color: var(--accent);
+    box-shadow: 0 0 40px rgba(124,106,255,0.2);
+  }
+  .pricing-card.featured::before {
+    content: 'MOST POPULAR';
+    position: absolute; top: 16px; right: -28px;
+    background: var(--accent); color: white;
+    font-size: 9px; font-weight: 700; letter-spacing: 1px;
+    padding: 4px 40px; transform: rotate(45deg);
+  }
+  .plan-name {
+    font-family: var(--font-head); font-size: 13px; font-weight: 700;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+  }
+  .plan-price {
+    font-family: var(--font-head); font-size: 52px; font-weight: 800;
+    color: var(--text); line-height: 1; margin-bottom: 4px;
+  }
+  .plan-price span { font-size: 20px; color: var(--muted); font-weight: 400; }
+  .plan-desc { font-size: 12px; color: var(--muted); margin-bottom: 24px; }
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .plan-features li { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .plan-features li::before { content: '✓'; color: var(--accent3); font-weight: 700; flex-shrink: 0; }
+  .btn-buy {
+    width: 100%; padding: 14px; border-radius: 10px; border: none; cursor: pointer;
+    font-family: var(--font-head); font-size: 14px; font-weight: 700;
+    transition: all 0.2s; text-decoration: none; display: block; text-align: center;
+  }
+  .btn-buy-basic {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-buy-basic:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-buy-pro {
+    background: linear-gradient(135deg, var(--accent), #a066ff);
+    color: white; box-shadow: 0 4px 20px rgba(124,106,255,0.4);
+  }
+  .btn-buy-pro:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(124,106,255,0.5); }
+  .pricing-footer {
+    text-align: center; font-size: 12px; color: var(--muted); padding-bottom: 60px;
+  }
+  .pricing-footer a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+
+  /* ACCESS BADGE */
+  .access-badge {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--accent3);
+    background: rgba(106,255,218,0.08); border: 1px solid rgba(106,255,218,0.2);
+    border-radius: 20px; padding: 5px 14px;
+  }
+  .access-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); }
 `;
 
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
+
+// Stripe Payment Links — replace with your real links from Stripe dashboard
+const STRIPE_LINKS = {
+  basic:  import.meta.env.VITE_STRIPE_BASIC  || "https://buy.stripe.com/placeholder_basic",
+  pro:    import.meta.env.VITE_STRIPE_PRO    || "https://buy.stripe.com/placeholder_pro",
+};
 
 // Fake scene prompts for demo (since we don't have real Replicate keys)
 const YOUTUBE_SCENE_PROMPTS = [
@@ -349,7 +432,19 @@ const PRODUCT_SCENE_PROMPTS = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("studio");
+  // Check localStorage + URL param for paid state
+  const checkPaid = () => {
+    if (localStorage.getItem("cf_paid")) return true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+      localStorage.setItem("cf_paid", "1");
+      window.history.replaceState({}, "", window.location.pathname);
+      return true;
+    }
+    return false;
+  };
+  const [hasPaid, setHasPaid] = useState(checkPaid);
+  const [activeTab, setActiveTab] = useState(checkPaid() ? "studio" : "pricing");
   const [mode, setMode] = useState("youtube"); // youtube | product
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0); // 0=idle,1=script,2=scenes,3=video,4=done
@@ -528,22 +623,98 @@ Return ONLY a JSON array of strings, no markdown, no explanation:
             <div className="logo-dot" />
             ClipForge
           </div>
-          <div className="nav-tabs">
-            {["studio", "history", "settings"].map(tab => (
-              <button
-                key={tab}
-                className={`nav-tab ${activeTab === tab ? "active" : ""}`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="nav-badge">✦ Replicate · Wan 2.2</div>
+          {hasPaid ? (
+            <div className="nav-tabs">
+              {["studio", "history", "settings"].map(tab => (
+                <button
+                  key={tab}
+                  className={`nav-tab ${activeTab === tab ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button className="btn-buy btn-buy-pro" style={{width:"auto",padding:"8px 20px",fontSize:"13px"}}
+              onClick={() => setActiveTab("pricing")}>
+              Get Access →
+            </button>
+          )}
+          {hasPaid ? (
+            <div className="access-badge"><div className="access-dot" /> Full Access</div>
+          ) : (
+            <div className="nav-badge">✦ fal.ai · Wan 2.2</div>
+          )}
         </nav>
 
         <main className="main">
-          {activeTab === "studio" && (
+          {/* PRICING PAGE */}
+          {(!hasPaid || activeTab === "pricing") && activeTab !== "studio" && activeTab !== "history" && activeTab !== "settings" && (
+            <div>
+              <div className="pricing-hero">
+                <h1>Make AI Videos.<br/>Pay Once. Keep Forever.</h1>
+                <p>Generate faceless YouTube videos and product ads with AI. No subscriptions. No watermarks. Yours to keep.</p>
+              </div>
+              <div className="pricing-cards">
+                <div className="pricing-card">
+                  <div className="plan-name">Basic</div>
+                  <div className="plan-price">$49<span> one-time</span></div>
+                  <div className="plan-desc">Perfect to get started</div>
+                  <ul className="plan-features">
+                    <li>Faceless YouTube automation</li>
+                    <li>AI script writer (Claude)</li>
+                    <li>5 scenes per video</li>
+                    <li>720p video generation</li>
+                    <li>Download individual clips</li>
+                    <li>No watermarks</li>
+                  </ul>
+                  <a className="btn-buy btn-buy-basic"
+                    href={`${STRIPE_LINKS.basic}?success_url=${encodeURIComponent(window.location.origin + "?payment=success")}`}
+                    target="_blank" rel="noreferrer">
+                    Buy Basic — $49
+                  </a>
+                </div>
+                <div className="pricing-card featured">
+                  <div className="plan-name">Pro</div>
+                  <div className="plan-price">$99<span> one-time</span></div>
+                  <div className="plan-desc">Everything you need to scale</div>
+                  <ul className="plan-features">
+                    <li>Everything in Basic</li>
+                    <li>Product video ad mode</li>
+                    <li>1080p video generation</li>
+                    <li>Auto scene stitching (FFmpeg)</li>
+                    <li>ElevenLabs voiceover</li>
+                    <li>Commercial license included</li>
+                    <li>Priority support</li>
+                  </ul>
+                  <a className="btn-buy btn-buy-pro"
+                    href={`${STRIPE_LINKS.pro}?success_url=${encodeURIComponent(window.location.origin + "?payment=success")}`}
+                    target="_blank" rel="noreferrer">
+                    Buy Pro — $99
+                  </a>
+                </div>
+              </div>
+              <div className="pricing-footer">
+                Already purchased? <a onClick={() => { localStorage.setItem("cf_paid","1"); setHasPaid(true); setActiveTab("studio"); }}>Click here to restore access</a>
+                &nbsp;·&nbsp; Secure payment via Stripe &nbsp;·&nbsp; Instant access after purchase
+              </div>
+            </div>
+          )}
+
+          {/* GATE: show pricing if not paid and trying to access studio */}
+          {!hasPaid && (activeTab === "studio" || activeTab === "history" || activeTab === "settings") && (
+            <div className="empty-output" style={{paddingTop:80}}>
+              <div className="empty-icon">🔒</div>
+              <div className="empty-text">Purchase a plan to unlock the studio.</div>
+              <button className="btn-generate" style={{marginTop:16,width:"auto",padding:"12px 32px"}}
+                onClick={() => setActiveTab("pricing")}>
+                View Pricing →
+              </button>
+            </div>
+          )}
+
+          {hasPaid && activeTab === "studio" && (
             <>
               {/* MODE SELECTOR */}
               <div className="mode-selector">
@@ -807,7 +978,7 @@ Return ONLY a JSON array of strings, no markdown, no explanation:
             </>
           )}
 
-          {activeTab === "history" && (
+          {hasPaid && activeTab === "history" && (
             <div className="panel">
               <div className="panel-header"><div className="panel-title">📁 Generation History</div></div>
               <div className="empty-output">
@@ -817,7 +988,7 @@ Return ONLY a JSON array of strings, no markdown, no explanation:
             </div>
           )}
 
-          {activeTab === "settings" && (
+          {hasPaid && activeTab === "settings" && (
             <div className="panel">
               <div className="panel-header"><div className="panel-title">⚙️ API Configuration</div></div>
               <div className="panel-body">
