@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
@@ -7,14 +7,14 @@ const STRIPE_LINKS = {
   pro:   import.meta.env.VITE_STRIPE_PRO   || "https://buy.stripe.com/placeholder_pro",
 };
 
-const YOUTUBE_SCENE_PROMPTS = [
-  "Cinematic aerial shot of a futuristic city at dawn, golden hour light, 8K",
-  "Close-up of hands typing on a glowing keyboard, neon reflections, dark room",
+const YOUTUBE_SCENES = [
+  "Cinematic aerial shot of futuristic city at dawn, golden hour light, 8K",
+  "Close-up of hands typing on glowing keyboard, neon reflections, dark room",
   "Abstract data visualization floating in space, particle effects, deep blue",
-  "Smooth camera pan across a modern minimalist workspace setup",
-  "Time-lapse of clouds moving over mountain peaks, dramatic lighting",
+  "Smooth camera pan across a modern minimalist workspace",
+  "Time-lapse of clouds over mountain peaks, dramatic lighting",
 ];
-const PRODUCT_SCENE_PROMPTS = [
+const PRODUCT_SCENES = [
   "Product floating in studio void, soft dramatic lighting, luxury aesthetic",
   "Close-up product details, macro lens, shallow depth of field, clean white",
   "Product in lifestyle context, warm natural light, aspirational feel",
@@ -22,416 +22,495 @@ const PRODUCT_SCENE_PROMPTS = [
 ];
 
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg:       #06060f;
-    --s1:       #0c0c1d;
-    --s2:       #111128;
-    --border:   rgba(255,255,255,0.06);
-    --border2:  rgba(255,255,255,0.12);
-    --p:        #7B5EA7;
-    --p2:       #9B6FD0;
-    --pink:     #E8619A;
-    --teal:     #4ECDC4;
-    --text:     #F0F0FA;
-    --sub:      #8888A8;
-    --font:     'Inter', sans-serif;
+    --bg: #07071a;
+    --s1: rgba(255,255,255,0.04);
+    --s2: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --v: #8B5CF6;
+    --v2: #A78BFA;
+    --pk: #EC4899;
+    --cy: #06B6D4;
+    --gr: #10B981;
+    --text: #F1F0FF;
+    --sub: #94909E;
+    --font: 'Plus Jakarta Sans', sans-serif;
   }
-
   html { scroll-behavior: smooth; }
-  body { background: var(--bg); color: var(--text); font-family: var(--font); overflow-x: hidden; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 
-  /* ── ORBS ── */
-  .orb {
-    position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
-    filter: blur(100px); opacity: 0.18;
+  /* ─── AURORA BACKGROUND ─── */
+  .aurora {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
   }
-  .orb-a { width: 700px; height: 700px; background: radial-gradient(circle, #7B5EA7, transparent); top: -200px; left: -200px; animation: drift 18s ease-in-out infinite alternate; }
-  .orb-b { width: 500px; height: 500px; background: radial-gradient(circle, #E8619A, transparent); bottom: -150px; right: -150px; animation: drift 22s ease-in-out infinite alternate-reverse; }
-  .orb-c { width: 350px; height: 350px; background: radial-gradient(circle, #4ECDC4, transparent); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: drift 14s ease-in-out infinite alternate; }
-  @keyframes drift { from { transform: translateY(0) scale(1); } to { transform: translateY(40px) scale(1.08); } }
+  .aurora::before {
+    content: '';
+    position: absolute; width: 140%; height: 140%; top: -20%; left: -20%;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 20%, rgba(139,92,246,0.22) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 80% 10%, rgba(236,72,153,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 60% at 50% 80%, rgba(6,182,212,0.12) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 50% at 90% 70%, rgba(139,92,246,0.1) 0%, transparent 60%);
+    animation: auroraMove 20s ease-in-out infinite alternate;
+  }
+  .aurora::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+  @keyframes auroraMove {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); }
+    33%  { transform: translate(2%, 3%) rotate(2deg) scale(1.03); }
+    66%  { transform: translate(-1%, 2%) rotate(-1deg) scale(1.01); }
+    100% { transform: translate(1%, -2%) rotate(1deg) scale(1.02); }
+  }
 
-  /* ── NAV ── */
+  /* ─── NAV ─── */
   .nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 48px; height: 64px;
-    background: rgba(6,6,15,0.7);
-    backdrop-filter: blur(24px);
+    position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px;
+    background: rgba(7,7,26,0.6);
+    backdrop-filter: blur(20px) saturate(180%);
     border-bottom: 1px solid var(--border);
   }
-  .logo {
-    font-size: 17px; font-weight: 800; letter-spacing: -0.4px;
-    display: flex; align-items: center; gap: 9px; cursor: pointer;
-  }
-  .logo-mark {
-    width: 28px; height: 28px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--p), var(--pink));
+  .logo { display: flex; align-items: center; gap: 10px; cursor: pointer; text-decoration: none; }
+  .logo-icon {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--v), var(--pk));
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px;
+    font-size: 15px; box-shadow: 0 0 20px rgba(139,92,246,0.5);
   }
-  .nav-right { display: flex; align-items: center; gap: 12px; }
-  .nav-pill {
-    font-size: 12px; font-weight: 500; padding: 6px 16px;
-    border-radius: 20px; border: 1px solid var(--border2);
-    background: var(--s1); color: var(--sub); cursor: pointer;
-    transition: all 0.2s;
+  .logo-text { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+  .nav-center { display: flex; gap: 4px; }
+  .nav-tab {
+    padding: 6px 16px; border-radius: 8px; border: none;
+    background: transparent; color: var(--sub); font-family: var(--font);
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.18s;
   }
-  .nav-pill:hover { color: var(--text); border-color: var(--p); }
-  .nav-pill.active { background: var(--p); color: white; border-color: transparent; }
-  .nav-cta {
-    font-size: 13px; font-weight: 600; padding: 8px 20px;
-    border-radius: 8px; border: none; cursor: pointer;
-    background: linear-gradient(135deg, var(--p), var(--p2));
-    color: white; transition: all 0.2s;
-    box-shadow: 0 2px 16px rgba(123,94,167,0.4);
+  .nav-tab:hover { color: var(--text); background: var(--s1); }
+  .nav-tab.on { color: var(--text); background: var(--s2); }
+  .nav-r { display: flex; align-items: center; gap: 10px; }
+  .badge-access {
+    font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px;
+    background: rgba(16,185,129,0.12); color: var(--gr);
+    border: 1px solid rgba(16,185,129,0.25);
+    display: flex; align-items: center; gap: 5px;
   }
-  .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 24px rgba(123,94,167,0.5); }
-  .nav-access {
-    font-size: 11px; font-weight: 600; padding: 5px 12px;
-    border-radius: 20px; background: rgba(78,205,196,0.1);
-    color: var(--teal); border: 1px solid rgba(78,205,196,0.25);
-    display: flex; align-items: center; gap: 6px;
-  }
-  .nav-access::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--teal); display:inline-block; animation: pulse2 2s ease-in-out infinite; }
-  @keyframes pulse2 { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .live-dot { width:5px; height:5px; border-radius:50%; background:var(--gr); animation: livePulse 1.8s ease-in-out infinite; }
+  @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
 
-  /* ── HERO ── */
+  /* ─── GLASS CARD ─── */
+  .glass {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(24px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px;
+  }
+  .glass-bright {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+  }
+
+  /* ─── HERO ─── */
   .hero {
     position: relative; z-index: 1; min-height: 100vh;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 100px 24px 80px;
+    text-align: center; padding: 80px 24px 60px;
   }
-  .hero-chip {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;
-    color: var(--p2); background: rgba(123,94,167,0.12);
-    border: 1px solid rgba(123,94,167,0.3); border-radius: 20px;
-    padding: 6px 14px; margin-bottom: 28px;
-    animation: fadeUp 0.6s ease both;
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    padding: 7px 16px; border-radius: 24px; margin-bottom: 32px;
+    background: rgba(139,92,246,0.1);
+    border: 1px solid rgba(139,92,246,0.25);
+    color: var(--v2);
+    animation: fadeSlide 0.5s ease both;
   }
-  .hero-chip span { width:6px; height:6px; border-radius:50%; background:var(--p2); animation: pulse2 1.5s ease-in-out infinite; }
-  .hero-h1 {
-    font-size: clamp(42px, 7vw, 80px); font-weight: 900;
-    line-height: 1.05; letter-spacing: -2.5px; margin-bottom: 24px;
-    animation: fadeUp 0.6s ease 0.1s both;
+  .hero-eyebrow-dot { width:6px; height:6px; border-radius:50%; background:var(--v2); animation: livePulse 1.8s ease-in-out infinite; }
+  .hero-title {
+    font-size: clamp(44px, 8vw, 88px); font-weight: 800;
+    line-height: 1.02; letter-spacing: -3px; margin-bottom: 22px;
+    animation: fadeSlide 0.5s ease 0.08s both;
   }
-  .hero-h1 .grad {
-    background: linear-gradient(135deg, #fff 0%, var(--p2) 50%, var(--pink) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+  .g1 { background: linear-gradient(120deg, #fff 0%, var(--v2) 40%, var(--pk) 80%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .hero-sub {
-    font-size: clamp(15px, 2vw, 18px); color: var(--sub); max-width: 520px;
-    line-height: 1.75; margin-bottom: 40px; font-weight: 400;
-    animation: fadeUp 0.6s ease 0.2s both;
+    font-size: clamp(15px, 2vw, 19px); color: var(--sub); line-height: 1.75;
+    max-width: 540px; margin: 0 auto 44px; font-weight: 400;
+    animation: fadeSlide 0.5s ease 0.16s both;
   }
-  .hero-actions {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center;
-    animation: fadeUp 0.6s ease 0.3s both;
+  .hero-btns {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
+    animation: fadeSlide 0.5s ease 0.24s both;
   }
-  .btn-primary {
-    font-size: 15px; font-weight: 700; padding: 14px 32px;
-    border-radius: 10px; border: none; cursor: pointer;
-    background: linear-gradient(135deg, var(--p), var(--p2));
-    color: white; transition: all 0.25s;
-    box-shadow: 0 4px 24px rgba(123,94,167,0.45);
-    display: flex; align-items: center; gap: 8px;
+  .btn-cta {
+    padding: 14px 34px; border-radius: 12px; border: none; cursor: pointer;
+    font-family: var(--font); font-size: 15px; font-weight: 700; color: white;
+    background: linear-gradient(135deg, var(--v), #7C3AED);
+    box-shadow: 0 4px 28px rgba(139,92,246,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: all 0.22s; display: flex; align-items: center; gap: 8px;
+    position: relative; overflow: hidden;
   }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(123,94,167,0.55); }
-  .btn-ghost {
-    font-size: 14px; font-weight: 500; padding: 14px 28px;
-    border-radius: 10px; border: 1px solid var(--border2);
-    background: transparent; color: var(--sub); cursor: pointer;
-    transition: all 0.2s;
+  .btn-cta::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    transform: translateX(-100%); animation: sheen 3s ease-in-out infinite 1s;
   }
-  .btn-ghost:hover { color: var(--text); border-color: var(--p); background: rgba(123,94,167,0.08); }
-  .hero-social {
-    margin-top: 56px; display: flex; align-items: center; gap: 32px; flex-wrap: wrap; justify-content: center;
-    animation: fadeUp 0.6s ease 0.4s both;
+  @keyframes sheen { 0%,100%{transform:translateX(-100%)} 40%{transform:translateX(100%)} }
+  .btn-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 36px rgba(139,92,246,0.6), inset 0 1px 0 rgba(255,255,255,0.15); }
+  .btn-outline {
+    padding: 14px 28px; border-radius: 12px; cursor: pointer;
+    font-family: var(--font); font-size: 14px; font-weight: 600;
+    background: var(--s1); border: 1px solid var(--border2);
+    color: var(--sub); transition: all 0.18s;
   }
-  .hero-stat { text-align: center; }
-  .hero-stat-num { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-  .hero-stat-label { font-size: 11px; color: var(--sub); margin-top: 2px; }
-  .divider-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border2); }
+  .btn-outline:hover { color: var(--text); border-color: var(--v); background: rgba(139,92,246,0.06); }
 
-  /* ── FEATURE STRIP ── */
-  .features {
-    position: relative; z-index: 1;
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
-    max-width: 900px; margin: 0 auto 100px;
-    background: var(--border); border-radius: 16px; overflow: hidden;
+  /* hero stats */
+  .hero-stats {
+    display: flex; align-items: center; gap: 36px; margin-top: 60px; flex-wrap: wrap; justify-content: center;
+    animation: fadeSlide 0.5s ease 0.32s both;
   }
-  .feature-item {
-    background: var(--s1); padding: 32px 28px;
-    transition: background 0.2s;
-  }
-  .feature-item:hover { background: var(--s2); }
-  .feature-icon { font-size: 24px; margin-bottom: 12px; }
-  .feature-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
-  .feature-desc { font-size: 12px; color: var(--sub); line-height: 1.6; }
+  .hstat { text-align: center; }
+  .hstat-n { font-size: 28px; font-weight: 800; letter-spacing: -1px; background: linear-gradient(135deg, var(--text), var(--v2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .hstat-l { font-size: 11px; color: var(--sub); margin-top: 3px; font-weight: 500; letter-spacing: 0.3px; }
+  .hstat-div { width: 1px; height: 36px; background: var(--border); }
 
-  /* ── PRICING ── */
-  .section { position: relative; z-index: 1; padding: 0 24px 100px; }
-  .section-label {
-    text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
-    text-transform: uppercase; color: var(--p2); margin-bottom: 12px;
+  /* ─── BENTO FEATURES ─── */
+  .bento-section { position:relative; z-index:1; padding: 20px 32px 100px; max-width: 1100px; margin: 0 auto; }
+  .bento-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 14px;
   }
-  .section-title {
-    text-align: center; font-size: clamp(28px, 4vw, 44px); font-weight: 800;
-    letter-spacing: -1px; margin-bottom: 12px;
+  .bento {
+    padding: 28px 26px; border-radius: 20px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    backdrop-filter: blur(16px);
+    transition: all 0.25s; position: relative; overflow: hidden;
   }
-  .section-sub {
-    text-align: center; font-size: 15px; color: var(--sub); max-width: 460px;
-    margin: 0 auto 48px; line-height: 1.7;
+  .bento:hover { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+  .bento::before { content:''; position:absolute; inset:0; opacity:0; transition:opacity 0.25s; border-radius:20px; }
+  .bento-wide { grid-column: span 2; }
+  .bento-tall { grid-row: span 2; }
+  .bento-v::before  { background: radial-gradient(ellipse at top left, rgba(139,92,246,0.12), transparent 70%); }
+  .bento-pk::before { background: radial-gradient(ellipse at top right, rgba(236,72,153,0.1), transparent 70%); }
+  .bento-cy::before { background: radial-gradient(ellipse at bottom, rgba(6,182,212,0.1), transparent 70%); }
+  .bento:hover::before { opacity: 1; }
+  .bento-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 20px; margin-bottom: 14px;
   }
-  .pricing-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-    max-width: 760px; margin: 0 auto;
+  .tag-v  { background: rgba(139,92,246,0.15); color: var(--v2); border: 1px solid rgba(139,92,246,0.2); }
+  .tag-pk { background: rgba(236,72,153,0.12); color: var(--pk);  border: 1px solid rgba(236,72,153,0.2); }
+  .tag-cy { background: rgba(6,182,212,0.12);  color: var(--cy);  border: 1px solid rgba(6,182,212,0.2); }
+  .tag-gr { background: rgba(16,185,129,0.12); color: var(--gr);  border: 1px solid rgba(16,185,129,0.2); }
+  .bento-icon { font-size: 28px; margin-bottom: 12px; display: block; }
+  .bento-title { font-size: 16px; font-weight: 700; margin-bottom: 7px; letter-spacing: -0.2px; }
+  .bento-desc { font-size: 13px; color: var(--sub); line-height: 1.65; }
+  .bento-demo {
+    margin-top: 20px; background: rgba(0,0,0,0.25); border-radius: 10px; padding: 12px 14px;
+    font-size: 11px; color: var(--sub); line-height: 1.7; border: 1px solid var(--border);
   }
-  .price-card {
-    background: var(--s1); border: 1px solid var(--border);
-    border-radius: 20px; padding: 36px 32px;
-    position: relative; overflow: hidden; transition: transform 0.2s;
+  .bento-demo-line { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .bento-demo-line .arrow { color: var(--v2); font-weight: 700; }
+  .pipeline-visual {
+    display: flex; align-items: center; gap: 0; margin-top: 18px; flex-wrap: wrap;
   }
-  .price-card:hover { transform: translateY(-4px); }
-  .price-card.featured {
-    border-color: var(--p);
-    background: linear-gradient(145deg, rgba(123,94,167,0.08) 0%, var(--s1) 100%);
-    box-shadow: 0 0 48px rgba(123,94,167,0.15);
+  .pipe-node {
+    font-size: 10px; font-weight: 600; padding: 5px 10px; border-radius: 6px;
+    background: rgba(139,92,246,0.12); color: var(--v2);
+    border: 1px solid rgba(139,92,246,0.2);
   }
-  .price-badge {
-    position: absolute; top: 20px; right: 20px;
-    font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-    background: var(--p); color: white; padding: 4px 10px; border-radius: 20px;
-  }
-  .price-tier { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--sub); margin-bottom: 16px; }
-  .price-amount { font-size: 56px; font-weight: 900; letter-spacing: -2px; line-height: 1; }
-  .price-amount sup { font-size: 22px; font-weight: 600; vertical-align: top; margin-top: 10px; letter-spacing: 0; }
-  .price-once { font-size: 12px; color: var(--sub); margin-top: 6px; margin-bottom: 24px; }
-  .price-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-  .price-list li {
-    font-size: 13px; color: var(--text); display: flex; align-items: flex-start; gap: 9px; line-height: 1.4;
-  }
-  .price-list li .check { color: var(--teal); font-size: 12px; margin-top: 1px; flex-shrink: 0; }
-  .price-list li .dim { color: var(--sub); }
-  .btn-buy {
-    display: block; width: 100%; padding: 13px; border-radius: 10px;
-    font-size: 14px; font-weight: 700; text-align: center;
-    cursor: pointer; border: none; text-decoration: none; transition: all 0.2s;
-  }
-  .btn-buy-outline {
-    background: transparent; color: var(--text);
-    border: 1px solid var(--border2);
-  }
-  .btn-buy-outline:hover { border-color: var(--p); color: var(--p); }
-  .btn-buy-fill {
-    background: linear-gradient(135deg, var(--p), var(--p2));
-    color: white; box-shadow: 0 4px 20px rgba(123,94,167,0.4);
-  }
-  .btn-buy-fill:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(123,94,167,0.5); }
-  .pricing-note {
-    text-align: center; font-size: 12px; color: var(--sub); margin-top: 24px;
-  }
-  .pricing-note a { color: var(--p2); cursor: pointer; text-decoration: underline; }
+  .pipe-arr { color: var(--sub); font-size: 12px; padding: 0 4px; }
 
-  /* ── STUDIO ── */
-  .studio-wrap {
-    position: relative; z-index: 1;
-    padding: 80px 32px 60px; max-width: 1160px; margin: 0 auto;
+  /* ─── PRICING ─── */
+  .pricing-section { position:relative; z-index:1; padding: 40px 32px 100px; max-width: 900px; margin: 0 auto; }
+  .section-eyebrow {
+    text-align:center; font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--v2); margin-bottom: 12px;
   }
-  .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+  .section-h { text-align:center; font-size: clamp(28px,4vw,46px); font-weight:800; letter-spacing:-1.5px; margin-bottom: 12px; }
+  .section-p { text-align:center; font-size:15px; color:var(--sub); max-width:420px; margin:0 auto 52px; line-height:1.7; }
+  .plans { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .plan {
+    padding: 36px 32px; border-radius: 22px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(20px);
+    position: relative; overflow: hidden; transition: transform 0.22s;
+  }
+  .plan:hover { transform: translateY(-4px); }
+  .plan.featured {
+    background: rgba(139,92,246,0.07);
+    border-color: rgba(139,92,246,0.3);
+    box-shadow: 0 0 60px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .plan.featured::before {
+    content: ''; position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, rgba(139,92,246,0.8), transparent);
+  }
+  .plan-chip {
+    position:absolute; top:18px; right:18px;
+    font-size:9px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase;
+    padding:4px 10px; border-radius:20px;
+    background: linear-gradient(135deg, var(--v), var(--pk)); color:white;
+  }
+  .plan-tier { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--sub); margin-bottom:18px; }
+  .plan-price { font-size:60px; font-weight:900; letter-spacing:-3px; line-height:1; }
+  .plan-price sup { font-size:24px; font-weight:700; vertical-align:super; font-size:22px; letter-spacing:0; }
+  .plan-cadence { font-size:12px; color:var(--sub); margin-top:6px; margin-bottom:28px; }
+  .plan-feats { list-style:none; display:flex; flex-direction:column; gap:11px; margin-bottom:30px; }
+  .plan-feats li { font-size:13px; display:flex; align-items:flex-start; gap:9px; line-height:1.4; }
+  .check { color:var(--gr); font-size:12px; margin-top:1px; flex-shrink:0; font-weight:700; }
+  .cross { color:rgba(255,255,255,0.2); font-size:12px; margin-top:1px; flex-shrink:0; }
+  .dim-feat { color:var(--sub); }
+  .plan-btn {
+    display:block; width:100%; padding:13px; text-align:center; border-radius:11px;
+    font-family:var(--font); font-size:14px; font-weight:700; cursor:pointer;
+    border:none; text-decoration:none; transition:all 0.2s;
+  }
+  .plan-btn-outline { background:transparent; border:1px solid var(--border2); color:var(--text); }
+  .plan-btn-outline:hover { border-color:var(--v); color:var(--v2); background:rgba(139,92,246,0.06); }
+  .plan-btn-fill {
+    background: linear-gradient(135deg, var(--v), #7C3AED); color:white;
+    box-shadow: 0 4px 20px rgba(139,92,246,0.4);
+  }
+  .plan-btn-fill:hover { transform:translateY(-1px); box-shadow: 0 8px 28px rgba(139,92,246,0.5); }
+  .pricing-foot { text-align:center; font-size:12px; color:var(--sub); margin-top:24px; }
+  .pricing-foot a { color:var(--v2); cursor:pointer; text-decoration:underline; }
+
+  /* ─── STUDIO ─── */
+  .studio {
+    position:relative; z-index:1; padding:80px 32px 60px; max-width:1160px; margin:0 auto;
+  }
+  .studio-header { margin-bottom: 28px; }
+  .studio-header h2 { font-size:26px; font-weight:800; letter-spacing:-0.8px; margin-bottom:4px; }
+  .studio-header p { font-size:13px; color:var(--sub); }
+
+  .mode-toggle {
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:24px;
+  }
   .mode-btn {
-    padding: 20px 22px; border-radius: 14px;
-    border: 1px solid var(--border); background: var(--s1);
-    cursor: pointer; display: flex; align-items: center; gap: 14px;
-    transition: all 0.2s; text-align: left;
+    padding:18px 20px; border-radius:14px; cursor:pointer; text-align:left;
+    display:flex; align-items:center; gap:14px; transition:all 0.2s;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    backdrop-filter: blur(16px);
   }
-  .mode-btn:hover { border-color: var(--border2); background: var(--s2); }
-  .mode-btn.active { border-color: var(--p); background: rgba(123,94,167,0.08); box-shadow: 0 0 24px rgba(123,94,167,0.1); }
-  .mode-btn.active-pink { border-color: var(--pink); background: rgba(232,97,154,0.08); box-shadow: 0 0 24px rgba(232,97,154,0.1); }
-  .mode-emoji { font-size: 24px; flex-shrink: 0; }
-  .mode-label { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
-  .mode-sublabel { font-size: 11px; color: var(--sub); line-height: 1.4; }
+  .mode-btn:hover { border-color: var(--border2); background: rgba(255,255,255,0.05); }
+  .mode-btn.sel-v { border-color:rgba(139,92,246,0.5); background:rgba(139,92,246,0.08); box-shadow:0 0 20px rgba(139,92,246,0.12); }
+  .mode-btn.sel-pk { border-color:rgba(236,72,153,0.5); background:rgba(236,72,153,0.07); box-shadow:0 0 20px rgba(236,72,153,0.1); }
+  .mode-em { font-size:22px; flex-shrink:0; }
+  .mode-lbl { font-size:13px; font-weight:700; margin-bottom:2px; }
+  .mode-sub { font-size:11px; color:var(--sub); }
+  .sel-indicator {
+    margin-left:auto; width:8px; height:8px; border-radius:50%; flex-shrink:0;
+    background:var(--v); box-shadow:0 0 8px var(--v);
+  }
+  .sel-indicator.pk { background:var(--pk); box-shadow:0 0 8px var(--pk); }
 
-  .studio-grid { display: grid; grid-template-columns: 1fr 400px; gap: 20px; }
+  .studio-layout { display:grid; grid-template-columns:1fr 380px; gap:16px; }
 
-  /* card */
-  .card {
-    background: var(--s1); border: 1px solid var(--border);
-    border-radius: 16px; overflow: hidden;
+  /* glass panel */
+  .gpanel {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(24px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px; overflow:hidden;
   }
-  .card-head {
-    padding: 16px 22px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
+  .gpanel-head {
+    padding:15px 20px; border-bottom:1px solid rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:space-between;
   }
-  .card-title { font-size: 13px; font-weight: 700; }
-  .card-body { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+  .gpanel-title { font-size:13px; font-weight:700; }
+  .gpanel-body { padding:20px; display:flex; flex-direction:column; gap:16px; }
 
-  /* pipe */
-  .pipe-row { display: flex; align-items: center; gap: 0; background: var(--s2); border-radius: 8px; padding: 3px; }
-  .pipe-step {
-    flex: 1; padding: 7px 4px; text-align: center; font-size: 10px;
-    color: var(--sub); border-radius: 6px; font-weight: 500; transition: all 0.2s;
+  /* pipe steps */
+  .pipe-track { display:flex; align-items:center; background:rgba(0,0,0,0.2); border-radius:8px; padding:3px; }
+  .ps {
+    flex:1; padding:6px 4px; text-align:center; font-size:10px; font-weight:600;
+    color:var(--sub); border-radius:6px; transition:all 0.2s;
   }
-  .pipe-step.done { color: var(--teal); }
-  .pipe-step.active { background: var(--s1); color: var(--text); }
-  .pipe-sep { color: var(--border2); font-size: 10px; flex-shrink: 0; padding: 0 2px; }
+  .ps.on { background:rgba(255,255,255,0.07); color:var(--text); }
+  .ps.done { color:var(--gr); }
+  .ps-sep { color:rgba(255,255,255,0.15); font-size:10px; padding:0 2px; }
 
   /* fields */
-  .field { display: flex; flex-direction: column; gap: 7px; }
-  .flabel { font-size: 11px; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: 0.8px; }
+  .field { display:flex; flex-direction:column; gap:6px; }
+  .flbl { font-size:10px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--sub); }
   textarea, input[type=text], select {
-    background: var(--s2); border: 1px solid var(--border);
-    border-radius: 9px; color: var(--text); font-family: var(--font);
-    font-size: 13px; padding: 11px 13px; width: 100%; outline: none; resize: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08);
+    border-radius:10px; color:var(--text); font-family:var(--font);
+    font-size:13px; padding:11px 13px; width:100%; outline:none; resize:none;
+    transition:all 0.18s;
   }
   textarea:focus, input[type=text]:focus, select:focus {
-    border-color: rgba(123,94,167,0.5);
-    box-shadow: 0 0 0 3px rgba(123,94,167,0.08);
+    border-color:rgba(139,92,246,0.45);
+    box-shadow:0 0 0 3px rgba(139,92,246,0.08);
+    background: rgba(0,0,0,0.35);
   }
-  select option { background: var(--s2); }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  textarea::placeholder, input::placeholder { color:rgba(255,255,255,0.2); }
+  select option { background:#0c0c1e; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
   /* upload */
-  .upload {
-    border: 1.5px dashed var(--border); border-radius: 10px;
-    padding: 28px; text-align: center; cursor: pointer;
-    position: relative; overflow: hidden; transition: all 0.2s;
+  .upzone {
+    border:1.5px dashed rgba(255,255,255,0.1); border-radius:10px;
+    padding:28px; text-align:center; position:relative; overflow:hidden;
+    cursor:pointer; transition:all 0.2s;
+    background:rgba(0,0,0,0.15);
   }
-  .upload:hover { border-color: var(--pink); background: rgba(232,97,154,0.03); }
-  .upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .upload-icon { font-size: 24px; margin-bottom: 8px; }
-  .upload-txt { font-size: 12px; color: var(--sub); line-height: 1.5; }
-  .upload img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-top: 10px; }
+  .upzone:hover { border-color:rgba(236,72,153,0.4); background:rgba(236,72,153,0.03); }
+  .upzone input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .up-ico { font-size:22px; margin-bottom:6px; }
+  .up-txt { font-size:11px; color:var(--sub); line-height:1.5; }
+  .up-img { width:100%; max-height:130px; object-fit:cover; border-radius:7px; margin-top:8px; }
 
-  /* generate btn */
-  .btn-gen {
-    width: 100%; padding: 15px; border-radius: 10px; border: none; cursor: pointer;
-    font-family: var(--font); font-size: 14px; font-weight: 700;
-    position: relative; overflow: hidden; transition: all 0.25s; color: white;
-    background: linear-gradient(135deg, var(--p), var(--p2));
-    box-shadow: 0 4px 20px rgba(123,94,167,0.35);
-  }
-  .btn-gen.pink-mode { background: linear-gradient(135deg, var(--pink), #f7a34b); box-shadow: 0 4px 20px rgba(232,97,154,0.35); }
-  .btn-gen:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(123,94,167,0.45); }
-  .btn-gen:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-  .shimmer {
-    position: absolute; inset: 0;
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
-    transform: translateX(-100%); animation: shim 2.2s infinite;
-  }
-  @keyframes shim { to { transform: translateX(100%); } }
-  .spin {
-    width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.25);
-    border-top-color: white; border-radius: 50%;
-    animation: rotating 0.7s linear infinite; display: inline-block; margin-right: 7px; vertical-align: middle;
-  }
-  @keyframes rotating { to { transform: rotate(360deg); } }
-
-  /* cost badge */
+  /* cost tag */
   .cost-tag {
-    font-size: 11px; padding: 5px 12px; border-radius: 20px;
-    background: rgba(78,205,196,0.07); color: var(--teal);
-    border: 1px solid rgba(78,205,196,0.18);
-    display: inline-flex; align-items: center; gap: 5px;
+    font-size:11px; padding:5px 12px; border-radius:20px;
+    background:rgba(16,185,129,0.08); color:var(--gr);
+    border:1px solid rgba(16,185,129,0.18);
+    display:inline-flex; align-items:center; gap:5px;
   }
+
+  /* gen button */
+  .btn-gen {
+    width:100%; padding:14px; border-radius:11px; border:none; cursor:pointer;
+    font-family:var(--font); font-size:14px; font-weight:700; color:white;
+    position:relative; overflow:hidden; transition:all 0.22s;
+    background: linear-gradient(135deg, var(--v), #7C3AED);
+    box-shadow: 0 4px 20px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  .btn-gen.pk { background: linear-gradient(135deg, var(--pk), #F97316); box-shadow: 0 4px 20px rgba(236,72,153,0.4), inset 0 1px 0 rgba(255,255,255,0.12); }
+  .btn-gen:hover:not(:disabled) { transform:translateY(-1px); box-shadow: 0 8px 28px rgba(139,92,246,0.5), inset 0 1px 0 rgba(255,255,255,0.12); }
+  .btn-gen:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+  .shim {
+    position:absolute; inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);
+    transform:translateX(-100%); animation:shimAnim 2.5s infinite;
+  }
+  @keyframes shimAnim { to{transform:translateX(100%)} }
+  .spin {
+    width:13px; height:13px; border:2px solid rgba(255,255,255,0.25);
+    border-top-color:white; border-radius:50%;
+    animation:rot 0.65s linear infinite; display:inline-block; margin-right:7px; vertical-align:middle;
+  }
+  @keyframes rot { to{transform:rotate(360deg)} }
 
   /* output */
-  .out-col { display: flex; flex-direction: column; gap: 14px; }
+  .out-stack { display:flex; flex-direction:column; gap:12px; }
 
-  .script-out { background: var(--s1); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-  .script-head { padding: 13px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .script-title-sm { font-size: 12px; font-weight: 700; }
-  .script-body {
-    padding: 16px 18px; font-size: 12px; line-height: 1.9; color: #b0b0d0;
-    max-height: 200px; overflow-y: auto;
+  .out-card {
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+    border-radius:16px; overflow:hidden; backdrop-filter:blur(16px);
   }
-  .script-body::-webkit-scrollbar { width: 3px; }
-  .script-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .out-head { padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; }
+  .out-title { font-size:12px; font-weight:700; }
+  .out-body { padding:14px 16px; font-size:12px; line-height:1.85; color:rgba(255,255,255,0.6); max-height:190px; overflow-y:auto; }
+  .out-body::-webkit-scrollbar { width:3px; }
+  .out-body::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:4px; }
 
-  .cursor-blink { display: inline-block; width: 2px; height: 13px; background: var(--p2); margin-left: 2px; vertical-align: middle; animation: blink 1s step-end infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .tcursor { display:inline-block; width:2px; height:12px; background:var(--v2); margin-left:2px; vertical-align:middle; animation:tblink 1s step-end infinite; }
+  @keyframes tblink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-  .scenes-out { background: var(--s1); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-  .scenes-head { padding: 13px 18px; border-bottom: 1px solid var(--border); }
-  .prog-bar { height: 3px; margin: 0 18px 14px; background: var(--s2); border-radius: 2px; overflow: hidden; }
-  .prog-fill { height: 100%; background: linear-gradient(90deg, var(--p), var(--teal)); transition: width 0.5s ease; border-radius: 2px; }
-  .scenes-list { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .scene-list { padding:10px; display:flex; flex-direction:column; gap:6px; }
   .scene-row {
-    background: var(--s2); border-radius: 9px; padding: 11px 13px;
-    display: flex; align-items: flex-start; gap: 10px;
-    border: 1px solid transparent; transition: border-color 0.2s;
+    background:rgba(0,0,0,0.2); border-radius:10px; padding:10px 12px;
+    display:flex; align-items:flex-start; gap:10px;
+    border:1px solid transparent; transition:all 0.2s;
   }
-  .scene-row.gen { border-color: rgba(123,94,167,0.4); animation: glowP 1.5s ease-in-out infinite; }
-  .scene-row.done { border-color: rgba(78,205,196,0.25); }
-  @keyframes glowP { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 14px rgba(123,94,167,0.18)} }
-  .s-num {
-    width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 700; background: var(--s1); color: var(--sub);
+  .scene-row.gen { border-color:rgba(139,92,246,0.35); background:rgba(139,92,246,0.05); animation:sceneGlow 1.5s ease-in-out infinite; }
+  .scene-row.done { border-color:rgba(16,185,129,0.25); }
+  @keyframes sceneGlow { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 12px rgba(139,92,246,0.15)} }
+  .snum {
+    width:21px; height:21px; border-radius:6px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:700;
+    background:rgba(255,255,255,0.06); color:var(--sub);
   }
-  .s-num.a { background: var(--p); color: white; }
-  .s-num.d { background: rgba(78,205,196,0.12); color: var(--teal); }
-  .s-info { flex: 1; }
-  .s-lbl { font-size: 10px; color: var(--sub); margin-bottom: 2px; }
-  .s-text { font-size: 12px; line-height: 1.45; }
-  .s-status { font-size: 10px; margin-top: 4px; color: var(--sub); }
-  .s-status.a { color: var(--p2); }
-  .s-status.d { color: var(--teal); }
+  .snum.a { background:var(--v); color:white; }
+  .snum.d { background:rgba(16,185,129,0.15); color:var(--gr); }
+  .sinfo { flex:1; }
+  .slbl { font-size:10px; color:var(--sub); margin-bottom:2px; font-weight:600; }
+  .stxt { font-size:12px; line-height:1.45; }
+  .sstat { font-size:10px; margin-top:4px; color:var(--sub); }
+  .sstat.a { color:var(--v2); }
+  .sstat.d { color:var(--gr); }
 
-  .video-out { background: var(--s1); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-  .video-ph {
-    aspect-ratio: 16/9; background: var(--s2);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; color: var(--sub); font-size: 13px;
+  .prog-wrap { height:2px; margin:0 16px 14px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden; }
+  .prog-fill { height:100%; background:linear-gradient(90deg,var(--v),var(--cy)); transition:width 0.5s ease; border-radius:2px; }
+
+  .vid-ph {
+    aspect-ratio:16/9; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px;
+    color:var(--sub); font-size:13px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.04), rgba(6,182,212,0.04));
   }
-  .video-ready-title { color: var(--teal); font-size: 13px; font-weight: 700; }
-
-  .empty-state {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 12px; padding: 52px 24px; color: var(--sub); text-align: center;
+  .vid-ready { color:var(--gr); font-size:13px; font-weight:700; }
+  .dl-btn {
+    padding:9px 22px; border-radius:9px; border:none; cursor:pointer;
+    font-family:var(--font); font-size:13px; font-weight:700;
+    background:linear-gradient(135deg,var(--gr),#059669);
+    color:white; transition:all 0.2s;
+    box-shadow:0 4px 16px rgba(16,185,129,0.35);
   }
-  .empty-icon { font-size: 40px; opacity: 0.25; }
-  .empty-text { font-size: 13px; line-height: 1.7; max-width: 240px; }
+  .dl-btn:hover { transform:translateY(-1px); }
 
-  /* copy btn */
-  .btn-sm {
-    font-size: 11px; padding: 4px 10px; border-radius: 6px;
-    border: 1px solid var(--border); background: var(--s2);
-    color: var(--sub); cursor: pointer; font-family: var(--font);
-    transition: all 0.15s;
+  .empty-s {
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; padding:48px 24px;
+    color:var(--sub); text-align:center;
   }
-  .btn-sm:hover { color: var(--text); border-color: var(--p2); }
+  .empty-ico { font-size:36px; opacity:0.2; }
+  .empty-txt { font-size:12px; line-height:1.7; max-width:220px; }
 
-  /* settings / history */
-  .settings-wrap { padding: 80px 32px 60px; max-width: 600px; margin: 0 auto; }
+  .btn-xs {
+    font-size:10px; padding:4px 10px; border-radius:6px;
+    border:1px solid var(--border2); background:transparent;
+    color:var(--sub); cursor:pointer; font-family:var(--font);
+    font-weight:600; transition:all 0.15s;
+  }
+  .btn-xs:hover { color:var(--text); border-color:var(--v2); }
 
-  /* gate */
+  /* ─── SETTINGS / HISTORY ─── */
+  .sub-page { position:relative; z-index:1; padding:80px 32px 60px; max-width:600px; margin:0 auto; }
+
+  /* ─── GATE ─── */
   .gate {
-    min-height: calc(100vh - 64px); display: flex; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center;
-    padding: 60px 24px; position: relative; z-index: 1;
+    position:relative; z-index:1; min-height:calc(100vh - 60px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:60px 24px;
   }
-  .gate-icon { font-size: 48px; margin-bottom: 20px; opacity: 0.5; }
-  .gate-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
-  .gate-sub { font-size: 14px; color: var(--sub); margin-bottom: 28px; }
+  .gate-ico { font-size:52px; margin-bottom:20px; opacity:0.35; }
+  .gate-h { font-size:22px; font-weight:800; margin-bottom:8px; letter-spacing:-0.5px; }
+  .gate-p { font-size:14px; color:var(--sub); margin-bottom:28px; }
 
-  /* animations */
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeSlide { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
 
-  /* responsive */
-  @media (max-width: 860px) {
-    .nav { padding: 0 20px; }
-    .studio-grid { grid-template-columns: 1fr; }
-    .mode-row { grid-template-columns: 1fr; }
-    .features { grid-template-columns: 1fr; }
-    .pricing-grid { grid-template-columns: 1fr; }
-    .studio-wrap { padding: 80px 16px 40px; }
+  /* ─── RESPONSIVE ─── */
+  @media(max-width:860px){
+    .nav{padding:0 20px}
+    .studio-layout{grid-template-columns:1fr}
+    .mode-toggle{grid-template-columns:1fr}
+    .bento-grid{grid-template-columns:1fr}
+    .bento-wide{grid-column:span 1}
+    .plans{grid-template-columns:1fr}
+    .studio{padding:80px 16px 40px}
+    .bento-section{padding:0 16px 80px}
+    .pricing-section{padding:40px 16px 80px}
   }
 `;
 
@@ -448,7 +527,7 @@ export default function App() {
   };
 
   const [hasPaid, setHasPaid] = useState(checkPaid);
-  const [page, setPage] = useState(checkPaid() ? "studio" : "home"); // home | studio | history | settings
+  const [page, setPage] = useState(checkPaid() ? "studio" : "home");
   const [mode, setMode] = useState("youtube");
   const [isGen, setIsGen] = useState(false);
   const [step, setStep] = useState(0);
@@ -458,7 +537,6 @@ export default function App() {
   const [sceneStatus, setSceneStatus] = useState([]);
   const [progress, setProgress] = useState(0);
   const [copied, setCopied] = useState(false);
-
   const [topic, setTopic] = useState("");
   const [duration, setDuration] = useState("60");
   const [style, setStyle] = useState("educational");
@@ -466,10 +544,9 @@ export default function App() {
   const [productDesc, setProductDesc] = useState("");
   const [productImage, setProductImage] = useState(null);
   const [videoFormat, setVideoFormat] = useState("landscape");
-
   const scriptRef = useRef(null);
 
-  const handleImageUpload = (e) => {
+  const handleImg = (e) => {
     const f = e.target.files[0];
     if (f) { const r = new FileReader(); r.onload = ev => setProductImage(ev.target.result); r.readAsDataURL(f); }
   };
@@ -478,8 +555,8 @@ export default function App() {
     setTyping(true); setScript("");
     const words = text.split(" ");
     for (let i = 0; i < words.length; i++) {
-      await new Promise(r => setTimeout(r, 28));
-      setScript(prev => prev + (i === 0 ? "" : " ") + words[i]);
+      await new Promise(r => setTimeout(r, 26));
+      setScript(p => p + (i === 0 ? "" : " ") + words[i]);
       if (scriptRef.current) scriptRef.current.scrollTop = scriptRef.current.scrollHeight;
     }
     setTyping(false);
@@ -490,7 +567,7 @@ export default function App() {
     for (let i = 0; i < list.length; i++) {
       await new Promise(r => setTimeout(r, 300));
       s[i] = "gen"; setSceneStatus([...s]);
-      await new Promise(r => setTimeout(r, 1400 + Math.random() * 900));
+      await new Promise(r => setTimeout(r, 1300 + Math.random() * 900));
       s[i] = "done"; setSceneStatus([...s]);
       setProgress(Math.round(((i + 1) / list.length) * 100));
     }
@@ -502,269 +579,272 @@ export default function App() {
     setIsGen(true); setStep(1); setScript(""); setScenes([]); setSceneStatus([]); setProgress(0);
     try {
       const prompt = mode === "youtube"
-        ? `You are a professional YouTube scriptwriter for faceless channels. Write a compelling ${duration}-second video script about: "${topic}". Style: ${style}.
+        ? `You are a professional YouTube scriptwriter for faceless channels. Write a ${duration}-second script about: "${topic}". Style: ${style}.
+Format: HOOK (0-5s): ... | MAIN CONTENT: ... | CTA (last 10s): ...
+Punchy, no filler. Max ${Math.round(parseInt(duration)*2.5)} words.`
+        : `Write compelling 30s video ad copy for: ${productName}. ${productDesc ? "Details: "+productDesc : ""}
+Format: HOOK | PROBLEM | SOLUTION | PROOF | CTA. Punchy and conversion-focused.`;
 
-Format:
-HOOK (0-5s): [attention-grabbing opening]
-MAIN CONTENT: [3-4 clear sections]
-CTA (last 10s): [call to action]
-
-Keep it punchy. Max ${Math.round(parseInt(duration) * 2.5)} words total.`
-        : `You are a professional product video copywriter. Write compelling video ad copy for:
-Product: ${productName}
-Description: ${productDesc || "A premium product"}
-
-Format:
-HOOK (0-3s): [powerful opening]
-PROBLEM (3-8s): [pain point]
-SOLUTION (8-18s): [how product solves it]
-PROOF (18-23s): [social proof]
-CTA (23-30s): [clear call to action]
-
-Make it punchy and conversion-focused.`;
-
-      const headers = {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_KEY,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
+      const hdrs = {
+        "Content-Type":"application/json",
+        "x-api-key":ANTHROPIC_KEY,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
       };
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers,
-        body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
+      const r1 = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST", headers:hdrs,
+        body:JSON.stringify({ model:CLAUDE_MODEL, max_tokens:1000, messages:[{role:"user",content:prompt}] })
       });
-      const data = await res.json();
-      const scriptText = data.content?.find(b => b.type === "text")?.text || "Script generation failed.";
+      const d1 = await r1.json();
+      const scriptText = d1.content?.find(b=>b.type==="text")?.text || "Script generation failed.";
       await typeOut(scriptText);
 
       setStep(2);
       await new Promise(r => setTimeout(r, 500));
 
-      const res2 = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers,
-        body: JSON.stringify({
-          model: CLAUDE_MODEL, max_tokens: 600,
-          messages: [{ role: "user", content: `Based on this script, generate ${mode === "youtube" ? "5" : "4"} cinematic AI video scene prompts for Wan 2.2. Vivid and specific.\n\nScript: ${scriptText}\n\nReturn ONLY a JSON array:\n["prompt 1", "prompt 2", ...]` }]
+      const r2 = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST", headers:hdrs,
+        body:JSON.stringify({ model:CLAUDE_MODEL, max_tokens:600,
+          messages:[{role:"user",content:`Generate ${mode==="youtube"?"5":"4"} cinematic AI video scene prompts for Wan 2.2 based on:\n${scriptText}\n\nReturn ONLY a JSON array:\n["prompt 1","prompt 2",...]`}]
         })
       });
-      const d2 = await res2.json();
-      let txt = d2.content?.find(b => b.type === "text")?.text || "[]";
-      txt = txt.replace(/```json|```/g, "").trim();
+      const d2 = await r2.json();
+      let txt = (d2.content?.find(b=>b.type==="text")?.text||"[]").replace(/```json|```/g,"").trim();
       let parsed;
-      try { parsed = JSON.parse(txt); } catch { parsed = mode === "youtube" ? YOUTUBE_SCENE_PROMPTS : PRODUCT_SCENE_PROMPTS; }
+      try { parsed = JSON.parse(txt); } catch { parsed = mode==="youtube" ? YOUTUBE_SCENES : PRODUCT_SCENES; }
 
       setScenes(parsed);
       setStep(3);
       await runScenes(parsed);
       setStep(4);
-    } catch (e) { console.error(e); } finally { setIsGen(false); }
+    } catch(e){ console.error(e); } finally { setIsGen(false); }
   };
 
-  const copyScript = () => { navigator.clipboard.writeText(script); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copyScript = () => { navigator.clipboard.writeText(script); setCopied(true); setTimeout(()=>setCopied(false), 2000); };
+  const unlock = () => { localStorage.setItem("cf_paid","1"); setHasPaid(true); setPage("studio"); };
 
-  const unlock = (go = "studio") => { localStorage.setItem("cf_paid", "1"); setHasPaid(true); setPage(go); };
-
-  const pipeSteps = ["Script", "Scenes", "Video", "Export"];
+  const pipeSteps = ["Script","Scenes","Video","Export"];
 
   return (
     <>
       <style>{css}</style>
       <div>
-        <div className="orb orb-a" /><div className="orb orb-b" /><div className="orb orb-c" />
+        <div className="aurora" />
 
         {/* NAV */}
         <nav className="nav">
           <div className="logo" onClick={() => setPage(hasPaid ? "studio" : "home")}>
-            <div className="logo-mark">⚡</div>
-            ClipForge
+            <div className="logo-icon">⚡</div>
+            <span className="logo-text">ClipForge</span>
           </div>
-          <div className="nav-right">
+
+          {hasPaid && (
+            <div className="nav-center">
+              {["studio","history","settings"].map(t => (
+                <button key={t} className={`nav-tab ${page===t?"on":""}`} onClick={() => setPage(t)}>
+                  {t[0].toUpperCase()+t.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="nav-r">
             {hasPaid ? (
-              <>
-                {["studio","history","settings"].map(t => (
-                  <button key={t} className={`nav-pill ${page === t ? "active" : ""}`} onClick={() => setPage(t)}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </button>
-                ))}
-                <div className="nav-access">Full Access</div>
-              </>
+              <div className="badge-access"><div className="live-dot"/>Full Access</div>
             ) : (
               <>
-                <button className="nav-pill" onClick={() => setPage("home")}>Home</button>
-                <button className="nav-cta" onClick={() => setPage("home")}>Get Access →</button>
+                <button className="btn-outline" style={{padding:"7px 16px",fontSize:13}} onClick={() => document.getElementById("pricing")?.scrollIntoView({behavior:"smooth"})}>Pricing</button>
+                <button className="btn-cta" style={{padding:"8px 20px",fontSize:13}} onClick={() => document.getElementById("pricing")?.scrollIntoView({behavior:"smooth"})}>Get Access →</button>
               </>
             )}
           </div>
         </nav>
 
-        {/* ── HOME / LANDING ── */}
+        {/* ──── HOME ──── */}
         {page === "home" && (
-          <div style={{paddingTop: 64}}>
+          <div style={{paddingTop:60}}>
+
             {/* Hero */}
             <div className="hero">
-              <div className="hero-chip"><span />New — Powered by Wan 2.2 + Claude AI</div>
-              <h1 className="hero-h1">
-                Turn ideas into<br/>
-                <span className="grad">AI videos instantly</span>
+              <div className="hero-eyebrow"><div className="hero-eyebrow-dot"/>Claude AI · Wan 2.2 · fal.ai</div>
+              <h1 className="hero-title">
+                AI videos,<br/><span className="g1">without the effort</span>
               </h1>
-              <p className="hero-sub">
-                Generate faceless YouTube videos and product ads with AI. Write, visualise, and render — no skills needed.
-              </p>
-              <div className="hero-actions">
-                <button className="btn-primary" onClick={() => hasPaid ? setPage("studio") : setPage("home")}>
+              <p className="hero-sub">Generate faceless YouTube videos and product ads with AI. Script, scenes, voiceover — all in one click.</p>
+              <div className="hero-btns">
+                <button className="btn-cta" onClick={() => hasPaid ? setPage("studio") : document.getElementById("pricing")?.scrollIntoView({behavior:"smooth"})}>
                   Start Creating →
                 </button>
-                <button className="btn-ghost" onClick={() => document.getElementById("pricing")?.scrollIntoView({behavior:"smooth"})}>
-                  See pricing
+                <button className="btn-outline" onClick={() => document.getElementById("features")?.scrollIntoView({behavior:"smooth"})}>
+                  See how it works
                 </button>
               </div>
-              <div className="hero-social">
-                <div className="hero-stat"><div className="hero-stat-num">2</div><div className="hero-stat-label">Video modes</div></div>
-                <div className="divider-dot" />
-                <div className="hero-stat"><div className="hero-stat-num">$0</div><div className="hero-stat-label">Monthly fee</div></div>
-                <div className="divider-dot" />
-                <div className="hero-stat"><div className="hero-stat-num">~60s</div><div className="hero-stat-label">Script to scenes</div></div>
-                <div className="divider-dot" />
-                <div className="hero-stat"><div className="hero-stat-num">1080p</div><div className="hero-stat-label">Output quality</div></div>
+              <div className="hero-stats">
+                <div className="hstat"><div className="hstat-n">2</div><div className="hstat-l">Video modes</div></div>
+                <div className="hstat-div"/>
+                <div className="hstat"><div className="hstat-n">$0</div><div className="hstat-l">Monthly fee</div></div>
+                <div className="hstat-div"/>
+                <div className="hstat"><div className="hstat-n">~60s</div><div className="hstat-l">Script to scenes</div></div>
+                <div className="hstat-div"/>
+                <div className="hstat"><div className="hstat-n">1080p</div><div className="hstat-l">Output quality</div></div>
               </div>
             </div>
 
-            {/* Feature strip */}
-            <div className="features" style={{padding: "0 24px", maxWidth: 900, margin: "0 auto 100px"}}>
-              <div className="feature-item">
-                <div className="feature-icon">🎬</div>
-                <div className="feature-title">Faceless YouTube</div>
-                <div className="feature-desc">Enter a topic, get a full script, voiceover, and cinematic clips ready to upload.</div>
-              </div>
-              <div className="feature-item">
-                <div className="feature-icon">🛍️</div>
-                <div className="feature-title">Product Video Ads</div>
-                <div className="feature-desc">Upload a product image and get a scroll-stopping 30-second ad for TikTok or Meta.</div>
-              </div>
-              <div className="feature-item">
-                <div className="feature-icon">⚡</div>
-                <div className="feature-title">One-time payment</div>
-                <div className="feature-desc">Pay once, use forever. No subscriptions, no watermarks, commercial rights included.</div>
+            {/* Bento features */}
+            <div className="bento-section" id="features">
+              <div className="bento-grid">
+                {/* Wide: faceless YT */}
+                <div className="bento bento-wide bento-v">
+                  <div className="bento-tag tag-v">🎬 YouTube Mode</div>
+                  <div className="bento-title">Faceless YouTube, fully automated</div>
+                  <div className="bento-desc">Enter a topic and get a complete video — script, voiceover, and AI-generated cinematic clips. No face, no editing skills needed.</div>
+                  <div className="pipeline-visual">
+                    <div className="pipe-node">Topic</div><span className="pipe-arr">→</span>
+                    <div className="pipe-node">Claude Script</div><span className="pipe-arr">→</span>
+                    <div className="pipe-node">Voiceover</div><span className="pipe-arr">→</span>
+                    <div className="pipe-node">Wan 2.2 Clips</div><span className="pipe-arr">→</span>
+                    <div className="pipe-node">MP4 ✓</div>
+                  </div>
+                </div>
+                {/* Product ads */}
+                <div className="bento bento-pk">
+                  <div className="bento-tag tag-pk">🛍️ Product Mode</div>
+                  <div className="bento-title">30-second product ads</div>
+                  <div className="bento-desc">Upload a product image. Get a scroll-stopping video ad ready for TikTok, Meta, or YouTube in seconds.</div>
+                </div>
+                {/* One-time */}
+                <div className="bento bento-cy">
+                  <div className="bento-tag tag-cy">💳 Pricing</div>
+                  <div className="bento-title">Pay once, keep forever</div>
+                  <div className="bento-desc">No subscriptions. No watermarks. Commercial rights included. From $49.</div>
+                </div>
+                {/* AI Script */}
+                <div className="bento bento-v">
+                  <div className="bento-tag tag-v">✍️ AI Scriptwriting</div>
+                  <div className="bento-title">Claude writes the script</div>
+                  <div className="bento-desc">Hooks, main content, CTA — structured and optimised for retention with a live typing effect.</div>
+                  <div className="bento-demo">
+                    <div className="bento-demo-line"><span className="arrow">▸</span>HOOK: "Most people waste 10 years..."</div>
+                    <div className="bento-demo-line"><span className="arrow">▸</span>MAIN: Step-by-step breakdown</div>
+                    <div className="bento-demo-line"><span className="arrow">▸</span>CTA: "Subscribe for more..."</div>
+                  </div>
+                </div>
+                {/* Quality */}
+                <div className="bento">
+                  <div className="bento-tag tag-gr">🎯 Quality</div>
+                  <div className="bento-title">1080p cinematic output</div>
+                  <div className="bento-desc">Powered by Wan 2.2 — the best open-source video model. Upgrade to self-hosted GPU for pennies per clip.</div>
+                </div>
               </div>
             </div>
 
             {/* Pricing */}
-            <div className="section" id="pricing">
-              <div className="section-label">Pricing</div>
-              <h2 className="section-title">Simple, honest pricing</h2>
-              <p className="section-sub">Pay once. No monthly fees. Instant access after checkout.</p>
-              <div className="pricing-grid">
-                {/* Basic */}
-                <div className="price-card">
-                  <div className="price-tier">Basic</div>
-                  <div className="price-amount"><sup>$</sup>49</div>
-                  <div className="price-once">one-time payment</div>
-                  <ul className="price-list">
-                    <li><span className="check">✓</span> Faceless YouTube automation</li>
-                    <li><span className="check">✓</span> Claude AI script writer</li>
-                    <li><span className="check">✓</span> 5 cinematic scenes per video</li>
-                    <li><span className="check">✓</span> 720p video generation</li>
-                    <li><span className="check">✓</span> No watermarks</li>
-                    <li><span className="dim">✗ Product video ads</span></li>
-                    <li><span className="dim">✗ Auto scene stitching</span></li>
+            <div className="pricing-section" id="pricing">
+              <div className="section-eyebrow">Pricing</div>
+              <h2 className="section-h">Simple, honest pricing</h2>
+              <p className="section-p">Pay once. No monthly fees. Instant access after checkout.</p>
+              <div className="plans">
+                <div className="plan">
+                  <div className="plan-tier">Basic</div>
+                  <div className="plan-price"><sup>$</sup>49</div>
+                  <div className="plan-cadence">one-time payment</div>
+                  <ul className="plan-feats">
+                    <li><span className="check">✓</span>Faceless YouTube automation</li>
+                    <li><span className="check">✓</span>Claude AI script writer</li>
+                    <li><span className="check">✓</span>5 cinematic scenes per video</li>
+                    <li><span className="check">✓</span>720p video generation</li>
+                    <li><span className="check">✓</span>No watermarks</li>
+                    <li><span className="cross">✗</span><span className="dim-feat">Product video ads</span></li>
+                    <li><span className="cross">✗</span><span className="dim-feat">Auto scene stitching</span></li>
                   </ul>
-                  <a className="btn-buy btn-buy-outline"
-                    href={`${STRIPE_LINKS.basic}?success_url=${encodeURIComponent(window.location.origin + "?payment=success")}`}
-                    target="_blank" rel="noreferrer">
-                    Buy Basic — $49
-                  </a>
+                  <a className="plan-btn plan-btn-outline"
+                    href={`${STRIPE_LINKS.basic}?success_url=${encodeURIComponent(window.location.origin+"?payment=success")}`}
+                    target="_blank" rel="noreferrer">Buy Basic — $49</a>
                 </div>
-                {/* Pro */}
-                <div className="price-card featured">
-                  <div className="price-badge">Best Value</div>
-                  <div className="price-tier">Pro</div>
-                  <div className="price-amount"><sup>$</sup>99</div>
-                  <div className="price-once">one-time payment</div>
-                  <ul className="price-list">
-                    <li><span className="check">✓</span> Everything in Basic</li>
-                    <li><span className="check">✓</span> Product video ad mode</li>
-                    <li><span className="check">✓</span> 1080p video generation</li>
-                    <li><span className="check">✓</span> Auto scene stitching</li>
-                    <li><span className="check">✓</span> ElevenLabs voiceover</li>
-                    <li><span className="check">✓</span> Commercial license</li>
-                    <li><span className="check">✓</span> Priority support</li>
+                <div className="plan featured">
+                  <div className="plan-chip">Best Value</div>
+                  <div className="plan-tier">Pro</div>
+                  <div className="plan-price"><sup>$</sup>99</div>
+                  <div className="plan-cadence">one-time payment</div>
+                  <ul className="plan-feats">
+                    <li><span className="check">✓</span>Everything in Basic</li>
+                    <li><span className="check">✓</span>Product video ad mode</li>
+                    <li><span className="check">✓</span>1080p video generation</li>
+                    <li><span className="check">✓</span>Auto scene stitching</li>
+                    <li><span className="check">✓</span>ElevenLabs voiceover</li>
+                    <li><span className="check">✓</span>Commercial licence</li>
+                    <li><span className="check">✓</span>Priority support</li>
                   </ul>
-                  <a className="btn-buy btn-buy-fill"
-                    href={`${STRIPE_LINKS.pro}?success_url=${encodeURIComponent(window.location.origin + "?payment=success")}`}
-                    target="_blank" rel="noreferrer">
-                    Buy Pro — $99
-                  </a>
+                  <a className="plan-btn plan-btn-fill"
+                    href={`${STRIPE_LINKS.pro}?success_url=${encodeURIComponent(window.location.origin+"?payment=success")}`}
+                    target="_blank" rel="noreferrer">Buy Pro — $99</a>
                 </div>
               </div>
-              <p className="pricing-note">
-                Already purchased? <a onClick={() => unlock("studio")}>Restore access</a>
+              <p className="pricing-foot">
+                Already purchased? <a onClick={unlock}>Restore access</a>
                 &nbsp;·&nbsp; Secure checkout via Stripe &nbsp;·&nbsp; Instant access
               </p>
             </div>
           </div>
         )}
 
-        {/* ── GATE ── */}
+        {/* ──── GATE ──── */}
         {!hasPaid && page !== "home" && (
           <div className="gate">
-            <div className="gate-icon">🔒</div>
-            <div className="gate-title">Purchase required</div>
-            <div className="gate-sub">Get full access to the studio with a one-time payment.</div>
-            <button className="btn-primary" onClick={() => setPage("home")}>View plans →</button>
+            <div className="gate-ico">🔒</div>
+            <div className="gate-h">Purchase required</div>
+            <p className="gate-p">Get full studio access with a one-time payment.</p>
+            <button className="btn-cta" onClick={() => setPage("home")}>View plans →</button>
           </div>
         )}
 
-        {/* ── STUDIO ── */}
+        {/* ──── STUDIO ──── */}
         {hasPaid && page === "studio" && (
-          <div className="studio-wrap">
-            {/* Mode select */}
-            <div className="mode-row">
-              <button className={`mode-btn ${mode === "youtube" ? "active" : ""}`} onClick={() => { setMode("youtube"); setStep(0); setScript(""); setScenes([]); }}>
-                <span className="mode-emoji">🎬</span>
-                <div>
-                  <div className="mode-label">Faceless YouTube</div>
-                  <div className="mode-sublabel">Topic → script → voiceover → video clips</div>
-                </div>
+          <div className="studio">
+            <div className="studio-header">
+              <h2>Studio</h2>
+              <p>Choose a mode and generate your video</p>
+            </div>
+
+            <div className="mode-toggle">
+              <button className={`mode-btn ${mode==="youtube"?"sel-v":""}`} onClick={() => { setMode("youtube"); setStep(0); setScript(""); setScenes([]); }}>
+                <span className="mode-em">🎬</span>
+                <div><div className="mode-lbl">Faceless YouTube</div><div className="mode-sub">Topic → script → voiceover → clips</div></div>
+                {mode==="youtube" && <div className="sel-indicator"/>}
               </button>
-              <button className={`mode-btn ${mode === "product" ? "active-pink" : ""}`} onClick={() => { setMode("product"); setStep(0); setScript(""); setScenes([]); }}>
-                <span className="mode-emoji">🛍️</span>
-                <div>
-                  <div className="mode-label">Product Video Ad</div>
-                  <div className="mode-sublabel">Image + description → 30s ad</div>
-                </div>
+              <button className={`mode-btn ${mode==="product"?"sel-pk":""}`} onClick={() => { setMode("product"); setStep(0); setScript(""); setScenes([]); }}>
+                <span className="mode-em">🛍️</span>
+                <div><div className="mode-lbl">Product Video Ad</div><div className="mode-sub">Image + description → 30s ad</div></div>
+                {mode==="product" && <div className="sel-indicator pk"/>}
               </button>
             </div>
 
-            <div className="studio-grid">
-              {/* Left: inputs */}
-              <div className="card">
-                <div className="card-head">
-                  <div className="card-title">{mode === "youtube" ? "🎬 YouTube Setup" : "🛍️ Product Ad Setup"}</div>
+            <div className="studio-layout">
+              {/* Inputs */}
+              <div className="gpanel">
+                <div className="gpanel-head">
+                  <span className="gpanel-title">{mode==="youtube" ? "🎬 YouTube setup" : "🛍️ Product ad setup"}</span>
                 </div>
-                <div className="card-body">
-                  {/* Pipeline */}
-                  <div className="pipe-row">
-                    {pipeSteps.map((s, i) => (
+                <div className="gpanel-body">
+                  <div className="pipe-track">
+                    {pipeSteps.map((s,i) => (
                       <>
-                        <div key={s} className={`pipe-step ${step > i ? "done" : step === i + 1 ? "active" : ""}`}>
-                          {step > i ? "✓ " : ""}{s}
-                        </div>
-                        {i < pipeSteps.length - 1 && <span className="pipe-sep">›</span>}
+                        <div key={s} className={`ps ${step>i?"done":step===i+1?"on":""}`}>{step>i?"✓ ":""}{s}</div>
+                        {i<pipeSteps.length-1 && <span className="ps-sep">›</span>}
                       </>
                     ))}
                   </div>
 
-                  {mode === "youtube" ? (
+                  {mode==="youtube" ? (
                     <>
                       <div className="field">
-                        <label className="flabel">Video Topic</label>
-                        <textarea rows={3} placeholder="e.g. Top 10 passive income ideas that actually work" value={topic} onChange={e => setTopic(e.target.value)} />
+                        <label className="flbl">Video Topic</label>
+                        <textarea rows={3} placeholder="e.g. Top 10 passive income ideas that actually work" value={topic} onChange={e=>setTopic(e.target.value)}/>
                       </div>
                       <div className="row2">
                         <div className="field">
-                          <label className="flabel">Duration</label>
-                          <select value={duration} onChange={e => setDuration(e.target.value)}>
+                          <label className="flbl">Duration</label>
+                          <select value={duration} onChange={e=>setDuration(e.target.value)}>
                             <option value="30">30s — Short</option>
                             <option value="60">60s — 1 min</option>
                             <option value="180">3 min</option>
@@ -772,8 +852,8 @@ Make it punchy and conversion-focused.`;
                           </select>
                         </div>
                         <div className="field">
-                          <label className="flabel">Style</label>
-                          <select value={style} onChange={e => setStyle(e.target.value)}>
+                          <label className="flbl">Style</label>
+                          <select value={style} onChange={e=>setStyle(e.target.value)}>
                             <option value="educational">Educational</option>
                             <option value="storytelling">Storytelling</option>
                             <option value="listicle">Listicle</option>
@@ -783,7 +863,7 @@ Make it punchy and conversion-focused.`;
                         </div>
                       </div>
                       <div className="field">
-                        <label className="flabel">Voiceover</label>
+                        <label className="flbl">Voiceover</label>
                         <select>
                           <option>Deep Male — Professional</option>
                           <option>Female — Warm & Engaging</option>
@@ -795,33 +875,33 @@ Make it punchy and conversion-focused.`;
                   ) : (
                     <>
                       <div className="field">
-                        <label className="flabel">Product Name</label>
-                        <input type="text" placeholder="e.g. AeroFoam Pro Wireless Headphones" value={productName} onChange={e => setProductName(e.target.value)} />
+                        <label className="flbl">Product Name</label>
+                        <input type="text" placeholder="e.g. AeroFoam Pro Wireless Headphones" value={productName} onChange={e=>setProductName(e.target.value)}/>
                       </div>
                       <div className="field">
-                        <label className="flabel">Description</label>
-                        <textarea rows={3} placeholder="Key features, benefits, target audience..." value={productDesc} onChange={e => setProductDesc(e.target.value)} />
+                        <label className="flbl">Description</label>
+                        <textarea rows={3} placeholder="Key features, benefits, target audience..." value={productDesc} onChange={e=>setProductDesc(e.target.value)}/>
                       </div>
                       <div className="field">
-                        <label className="flabel">Product Image</label>
-                        <div className="upload">
-                          <input type="file" accept="image/*" onChange={handleImageUpload} />
-                          {productImage ? <img src={productImage} alt="Product" /> : (
-                            <><div className="upload-icon">📸</div><div className="upload-txt">Drop image or click to browse<br/><span style={{fontSize:11,opacity:0.6}}>PNG, JPG up to 10MB</span></div></>
+                        <label className="flbl">Product Image</label>
+                        <div className="upzone">
+                          <input type="file" accept="image/*" onChange={handleImg}/>
+                          {productImage ? <img src={productImage} className="up-img" alt="Product"/> : (
+                            <><div className="up-ico">📸</div><div className="up-txt">Drop image or click to browse<br/><span style={{fontSize:10,opacity:0.6}}>PNG, JPG up to 10MB</span></div></>
                           )}
                         </div>
                       </div>
                       <div className="row2">
                         <div className="field">
-                          <label className="flabel">Format</label>
-                          <select value={videoFormat} onChange={e => setVideoFormat(e.target.value)}>
+                          <label className="flbl">Format</label>
+                          <select value={videoFormat} onChange={e=>setVideoFormat(e.target.value)}>
                             <option value="landscape">16:9 — YouTube</option>
                             <option value="portrait">9:16 — TikTok</option>
                             <option value="square">1:1 — Instagram</option>
                           </select>
                         </div>
                         <div className="field">
-                          <label className="flabel">Length</label>
+                          <label className="flbl">Length</label>
                           <select>
                             <option>15s — Story</option>
                             <option>30s — Standard</option>
@@ -832,70 +912,68 @@ Make it punchy and conversion-focused.`;
                     </>
                   )}
 
-                  <div style={{display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-                    <span className="cost-tag">⚡ ~${mode === "youtube" ? "1.50" : "0.80"} per video</span>
-                    <span style={{fontSize:11, color:"var(--sub)"}}>via fal.ai</span>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span className="cost-tag">⚡ ~${mode==="youtube"?"1.50":"0.80"} per video</span>
+                    <span style={{fontSize:11,color:"var(--sub)"}}>via fal.ai</span>
                   </div>
 
                   <button
-                    className={`btn-gen ${mode === "product" ? "pink-mode" : ""}`}
+                    className={`btn-gen ${mode==="product"?"pk":""}`}
                     onClick={generate}
-                    disabled={isGen || (mode === "youtube" ? !topic.trim() : !productName.trim())}
+                    disabled={isGen||(mode==="youtube"?!topic.trim():!productName.trim())}
                   >
-                    <div className="shimmer" />
-                    {isGen ? (
-                      <><span className="spin" />{step === 1 ? "Writing script..." : step === 2 ? "Planning scenes..." : "Generating video..."}</>
-                    ) : step === 4 ? "✓ Done — Generate another" : `Generate ${mode === "youtube" ? "YouTube video" : "product ad"} →`}
+                    <div className="shim"/>
+                    {isGen
+                      ? <><span className="spin"/>{step===1?"Writing script...":step===2?"Planning scenes...":"Generating video..."}</>
+                      : step===4 ? "✓ Done — Generate another"
+                      : `Generate ${mode==="youtube"?"YouTube video":"product ad"} →`
+                    }
                   </button>
                 </div>
               </div>
 
-              {/* Right: output */}
-              <div className="out-col">
-                {step === 0 ? (
-                  <div className="card">
-                    <div className="empty-state">
-                      <div className="empty-icon">{mode === "youtube" ? "🎬" : "🛍️"}</div>
-                      <div className="empty-text">
-                        {mode === "youtube"
-                          ? "Enter a topic and generate. Claude writes the script, plans scenes, and queues video generation."
-                          : "Add product details and image. Get a scroll-stopping video ad ready to run."}
+              {/* Output */}
+              <div className="out-stack">
+                {step===0 ? (
+                  <div className="gpanel">
+                    <div className="empty-s">
+                      <div className="empty-ico">{mode==="youtube"?"🎬":"🛍️"}</div>
+                      <div className="empty-txt">
+                        {mode==="youtube"
+                          ? "Enter a topic and hit generate. Claude writes the script, plans scenes, and queues video generation."
+                          : "Add product details and an image to generate a scroll-stopping video ad."}
                       </div>
                     </div>
                   </div>
                 ) : (
                   <>
                     {script && (
-                      <div className="script-out">
-                        <div className="script-head">
-                          <span className="script-title-sm">📝 Generated script</span>
-                          <button className="btn-sm" onClick={copyScript}>{copied ? "✓ Copied" : "Copy"}</button>
+                      <div className="out-card">
+                        <div className="out-head">
+                          <span className="out-title">📝 Script</span>
+                          <button className="btn-xs" onClick={copyScript}>{copied?"✓ Copied":"Copy"}</button>
                         </div>
-                        <div className="script-body" ref={scriptRef}>
-                          {script}{typing && <span className="cursor-blink" />}
+                        <div className="out-body" ref={scriptRef}>
+                          {script}{typing && <span className="tcursor"/>}
                         </div>
                       </div>
                     )}
 
-                    {scenes.length > 0 && (
-                      <div className="scenes-out">
-                        <div className="scenes-head">
-                          <span className="script-title-sm">🎞️ Video scenes</span>
-                        </div>
-                        {step >= 3 && <div className="prog-bar"><div className="prog-fill" style={{width: `${progress}%`}} /></div>}
-                        <div className="scenes-list">
-                          {scenes.map((sc, i) => {
-                            const st = sceneStatus[i] || "pending";
+                    {scenes.length>0 && (
+                      <div className="out-card">
+                        <div className="out-head"><span className="out-title">🎞️ Scenes</span></div>
+                        {step>=3 && <div className="prog-wrap"><div className="prog-fill" style={{width:`${progress}%`}}/></div>}
+                        <div className="scene-list">
+                          {scenes.map((sc,i) => {
+                            const st = sceneStatus[i]||"pending";
                             return (
-                              <div key={i} className={`scene-row ${st === "gen" ? "gen" : st === "done" ? "done" : ""}`}>
-                                <div className={`s-num ${st === "gen" ? "a" : st === "done" ? "d" : ""}`}>
-                                  {st === "done" ? "✓" : i + 1}
-                                </div>
-                                <div className="s-info">
-                                  <div className="s-lbl">Scene {i + 1}</div>
-                                  <div className="s-text">{sc}</div>
-                                  <div className={`s-status ${st === "gen" ? "a" : st === "done" ? "d" : ""}`}>
-                                    {st === "pending" ? "· Queued" : st === "gen" ? "⟳ Generating..." : "✓ Rendered"}
+                              <div key={i} className={`scene-row ${st==="gen"?"gen":st==="done"?"done":""}`}>
+                                <div className={`snum ${st==="gen"?"a":st==="done"?"d":""}`}>{st==="done"?"✓":i+1}</div>
+                                <div className="sinfo">
+                                  <div className="slbl">Scene {i+1}</div>
+                                  <div className="stxt">{sc}</div>
+                                  <div className={`sstat ${st==="gen"?"a":st==="done"?"d":""}`}>
+                                    {st==="pending"?"· Queued":st==="gen"?"⟳ Generating...":"✓ Rendered"}
                                   </div>
                                 </div>
                               </div>
@@ -905,25 +983,20 @@ Make it punchy and conversion-focused.`;
                       </div>
                     )}
 
-                    {step >= 3 && (
-                      <div className="video-out">
-                        <div className="video-ph">
-                          {step === 4 ? (
+                    {step>=3 && (
+                      <div className="out-card">
+                        <div className="vid-ph">
+                          {step===4 ? (
                             <>
-                              <div style={{fontSize:36}}>🎥</div>
-                              <div className="video-ready-title">Video ready!</div>
-                              <div style={{fontSize:12, color:"var(--sub)"}}>Stitching via FFmpeg — coming soon</div>
-                              <button style={{
-                                padding:"9px 22px", borderRadius:"8px", border:"none",
-                                background:"linear-gradient(135deg,var(--teal),#44b8a0)",
-                                color:"#06060f", fontFamily:"var(--font)", fontWeight:700,
-                                fontSize:13, cursor:"pointer"
-                              }}>⬇ Download MP4</button>
+                              <div style={{fontSize:34}}>🎥</div>
+                              <div className="vid-ready">Video ready!</div>
+                              <div style={{fontSize:11,color:"var(--sub)"}}>Scene stitching via FFmpeg — coming soon</div>
+                              <button className="dl-btn">⬇ Download MP4</button>
                             </>
                           ) : (
                             <>
-                              <div style={{fontSize:32, opacity:0.3}}>▶</div>
-                              <div>Rendering scenes... {progress}%</div>
+                              <div style={{fontSize:28,opacity:0.25}}>▶</div>
+                              <div>Rendering... {progress}%</div>
                             </>
                           )}
                         </div>
@@ -936,30 +1009,27 @@ Make it punchy and conversion-focused.`;
           </div>
         )}
 
-        {/* ── HISTORY ── */}
-        {hasPaid && page === "history" && (
-          <div className="settings-wrap">
-            <div className="card">
-              <div className="card-head"><div className="card-title">📁 Generation History</div></div>
-              <div className="empty-state">
-                <div className="empty-icon">📂</div>
-                <div className="empty-text">Your generated videos will appear here.</div>
-              </div>
+        {/* ──── HISTORY ──── */}
+        {hasPaid && page==="history" && (
+          <div className="sub-page">
+            <div className="gpanel">
+              <div className="gpanel-head"><span className="gpanel-title">📁 Generation History</span></div>
+              <div className="empty-s"><div className="empty-ico">📂</div><div className="empty-txt">Your generated videos will appear here.</div></div>
             </div>
           </div>
         )}
 
-        {/* ── SETTINGS ── */}
-        {hasPaid && page === "settings" && (
-          <div className="settings-wrap">
-            <div className="card">
-              <div className="card-head"><div className="card-title">⚙️ API Configuration</div></div>
-              <div className="card-body">
-                <div className="field"><label className="flabel">Anthropic API Key</label><input type="text" placeholder="sk-ant-••••••••••••" /></div>
-                <div className="field"><label className="flabel">fal.ai API Key</label><input type="text" placeholder="••••••••••••••••••" /></div>
-                <div className="field"><label className="flabel">ElevenLabs API Key</label><input type="text" placeholder="••••••••••••••••••" /></div>
+        {/* ──── SETTINGS ──── */}
+        {hasPaid && page==="settings" && (
+          <div className="sub-page">
+            <div className="gpanel">
+              <div className="gpanel-head"><span className="gpanel-title">⚙️ API Configuration</span></div>
+              <div className="gpanel-body">
+                <div className="field"><label className="flbl">Anthropic API Key</label><input type="text" placeholder="sk-ant-••••••••••••"/></div>
+                <div className="field"><label className="flbl">fal.ai API Key</label><input type="text" placeholder="••••••••••••••••••"/></div>
+                <div className="field"><label className="flbl">ElevenLabs API Key</label><input type="text" placeholder="••••••••••••••••••"/></div>
                 <div className="field">
-                  <label className="flabel">Video Model</label>
+                  <label className="flbl">Video Model</label>
                   <select>
                     <option>Wan 2.2 T2V — Best quality</option>
                     <option>Wan 2.2 I2V — Image to video</option>
