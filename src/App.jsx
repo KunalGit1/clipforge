@@ -216,8 +216,8 @@ const css = `
   .tag-cy { background: rgba(6,182,212,0.12);  color: var(--cy);  border: 1px solid rgba(6,182,212,0.2); }
   .tag-gr { background: rgba(16,185,129,0.12); color: var(--gr);  border: 1px solid rgba(16,185,129,0.2); }
   .bento-icon { font-size: 28px; margin-bottom: 12px; display: block; }
-  .bento-title { font-size: 16px; font-weight: 700; margin-bottom: 7px; letter-spacing: -0.2px; }
-  .bento-desc { font-size: 13px; color: var(--sub); line-height: 1.65; }
+  .bento-title { font-size: 16px; font-weight: 700; margin-bottom: 7px; letter-spacing: -0.2px; color: var(--text); }
+  .bento-desc { font-size: 13px; color: rgba(255,255,255,0.5); line-height: 1.65; }
   .bento-demo {
     margin-top: 20px; background: rgba(0,0,0,0.25); border-radius: 10px; padding: 12px 14px;
     font-size: 11px; color: var(--sub); line-height: 1.7; border: 1px solid var(--border);
@@ -240,8 +240,8 @@ const css = `
     text-align:center; font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase; color: var(--v2); margin-bottom: 12px;
   }
-  .section-h { text-align:center; font-size: clamp(28px,4vw,46px); font-weight:800; letter-spacing:-1.5px; margin-bottom: 12px; }
-  .section-p { text-align:center; font-size:15px; color:var(--sub); max-width:420px; margin:0 auto 52px; line-height:1.7; }
+  .section-h { text-align:center; font-size: clamp(28px,4vw,46px); font-weight:800; letter-spacing:-1.5px; margin-bottom: 12px; color: var(--text); }
+  .section-p { text-align:center; font-size:15px; color: rgba(255,255,255,0.55); max-width:420px; margin:0 auto 52px; line-height:1.7; }
   .plans { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .plan {
     padding: 36px 32px; border-radius: 22px;
